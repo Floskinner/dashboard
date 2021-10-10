@@ -10,20 +10,23 @@ from models.service_error import ServiceDuplicate, ServiceNotFound
 from services import get_json_data, services_path, set_json_data
 
 
-async def ping_service(service: Service) -> PingService:
-    """Ping the given Service to check if this is reachable. The Service has to be in the DB
+async def ping_service(services: List[Service]) -> List[PingService]:
+    """Ping the given Services to check if this is reachable. The Services has to be in the DB
 
     Args:
-        service (Service): Service to Ping (only Name required)
+        services (List[Service]): Services to Ping (only Name required)
 
     Returns:
-        [PingService]: Return of the Service with responsetime
+        List[PingService]: Return of the Services with responsetime
     """
-    service: DBService = get_service(service.name)
-    async with httpx.AsyncClient() as client:
-        resp: Response = await client.get(service.get("url"))
-        resp.raise_for_status()
-        return PingService(**service, response_time=resp.elapsed.total_seconds())
+    responses: List[PingService] = list()
+    for service in services:
+        service: DBService = get_service(service.name)
+        async with httpx.AsyncClient() as client:
+            resp: Response = await client.get(service.get("url"))
+            resp.raise_for_status()
+            responses.append(PingService(**service, response_time=resp.elapsed.total_seconds()))
+    return responses
 
 
 def add_service(service: DBService) -> DBService:

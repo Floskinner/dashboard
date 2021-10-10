@@ -12,24 +12,40 @@ from services import uptimer_service
 router = fastapi.APIRouter()
 
 
-@router.get("/api/service/{name}/ping", response_model=PingService)
-async def ping(service: Service = Depends()) -> PingService:
-    """Ping a Service that is in the services.json
+@router.get("/api/services/ping", response_model=List[PingService])
+async def ping_services(services: List[Service]) -> List[PingService]:
+    """Ping Services that is in the services.json
 
     Args:
-        service (Service): Service with only a name
+        services (List[Service]): Services with only a name
 
     Returns:
-        PingService: Service with his responsetime
+        List[PingService]: Services with his responsetime
     """
     try:
-        return await uptimer_service.PingService(service)
+        return await uptimer_service.ping_service(services)
     except ServiceNotFound as error:
         return fastapi.responses.JSONResponse(content=error.json_data, status_code=error.status_code)
     except httpx.RequestError as error:
         return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=408)
     except Exception as error:
         return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)
+
+
+@router.get("/api/service/{name}/ping", response_model=PingService)
+async def ping_service(service: Service = Depends()) -> PingService:
+    """Ping only one Service that is in the services.json
+
+    Args:
+        service (Service): Service to Ping
+
+    Returns:
+        PingService: Service with responsetime
+    """
+    response = await ping_services([service])
+    if isinstance(response, list):
+        return response[0]
+    return response
 
 
 @router.get("/api/services", response_model=List[DBService])
