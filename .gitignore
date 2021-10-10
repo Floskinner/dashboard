@@ -2,7 +2,7 @@
 .vscode
 
 # Data
-data/
+data/services.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
