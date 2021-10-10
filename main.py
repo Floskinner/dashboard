@@ -1,3 +1,4 @@
+"""Main for the Dashboard"""
 import fastapi
 import uvicorn
 
@@ -7,10 +8,12 @@ api = fastapi.FastAPI()
 
 
 def configure():
+    """Do initial config on start"""
     configure_routing()
 
 
 def configure_routing():
+    """Add all Router for FastAPI"""
     api.include_router(uptimer_api.router)
 
 

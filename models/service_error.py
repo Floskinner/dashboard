@@ -1,8 +1,9 @@
+"""Contains all Exceptions for the Services"""
 from models.service import Service
 
 
 class ServiceError(Exception):
-    """Exception for duplicate Service"""
+    """Base Exception for the Service Exceptions"""
 
     def __init__(self, error_msg: str, status_code: int):
         super().__init__(error_msg)
@@ -17,6 +18,8 @@ class ServiceError(Exception):
 
 
 class ServiceDuplicate(ServiceError):
+    """Exception if you try to add a already existing Service"""
+
     def __init__(self, error_msg: str, status_code: int, service: Service):
         super().__init__(error_msg, status_code)
         self.service = service
@@ -30,6 +33,8 @@ class ServiceDuplicate(ServiceError):
 
 
 class ServiceNotFound(ServiceError):
+    """Exception if the requested service does not exist in the DB"""
+
     def __init__(self, error_msg: str, status_code: int, service: Service):
         super().__init__(error_msg, status_code)
         self.service = service
