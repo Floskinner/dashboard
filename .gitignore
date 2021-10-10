@@ -1,6 +1,9 @@
 # VS Code settings
 .vscode
 
+# Data
+services.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
