@@ -1,1 +1,7 @@
-[{"name": "Heimdall", "url": "https://floskinner.de", "ping": true}, {"name": "fail", "url": "asdasdasd", "ping": true}]
+[
+	{
+		"name": "Heimdall",
+		"url": "https://floskinner.de",
+		"ping": true
+	}
+]

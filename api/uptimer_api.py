@@ -53,3 +53,21 @@ async def add_service(service: DBService) -> DBService:
         DBService: return the Service if success
     """
     return uptimer_service.add_service(service)
+
+
+@router.delete("/api/service/delete", status_code=200, response_model=DBService)
+async def delete_service(service: Service) -> DBService:
+    """Delete Service from DB
+
+    Args:
+        service (Service): Service to delete
+
+    Returns:
+        DBService: return the Service if success
+    """
+    try:
+        return uptimer_service.delete_service(service)
+    except ServiceNotFound as error:
+        return fastapi.responses.JSONResponse(content=error.json_data, status_code=error.status_code)
+    except Exception as error:
+        return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)

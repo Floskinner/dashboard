@@ -87,3 +87,19 @@ def get_service(name: str) -> DBService:
         if service.get("name").lower() == name.lower():
             return service
     raise ServiceNotFound("Der Service wurde nicht gefunden", 404, name)
+
+
+def delete_service(service: Service) -> DBService:
+    """Delete the Serive from the DB
+
+    Args:
+        service (Service): Service to delete
+
+    Returns:
+        DBService: return the Service if success
+    """
+    service = get_service(service.name)
+    services = get_services()
+    services.remove(service)
+    set_json_data(services, services_path)
+    return service
