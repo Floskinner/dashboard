@@ -1,5 +1,7 @@
 """Contains all Exceptions for the Services"""
-from models.service import Service
+from typing import Dict, Iterable, List, Union
+
+from models.service import DBService, Service
 
 
 class ServiceError(Exception):
@@ -20,10 +22,10 @@ class ServiceError(Exception):
 class ServiceDuplicate(ServiceError):
     """Exception if you try to add a already existing Service"""
 
-    def __init__(self, error_msg: str, status_code: int, service: Service):
+    def __init__(self, error_msg: str, status_code: int, service: DBService):
         super().__init__(error_msg, status_code)
-        self.service = service
         # fmt:off
+        self.service = service.get_attributes()
         self.json_data = {
             "error": self.error_msg,
             "status": self.status_code,
@@ -32,12 +34,66 @@ class ServiceDuplicate(ServiceError):
         # fmt:on
 
 
+class ServiceBulkException(ServiceError):
+    """Exception for the bulk requests"""
+
+    def __init__(
+        self,
+        error_msg: str,
+        status_code: int,
+        success_services: List[Service],
+        errors: Union[List[ServiceDuplicate], List[Service]],
+    ):
+        super().__init__(error_msg, status_code)
+
+        if isinstance(errors, Iterable):
+            if isinstance(errors[0], ServiceError):
+                self.error = [error.json_data for error in errors]
+            elif isinstance(errors[0], Service):
+                self.error = [error.get_attributes() for error in errors]
+            else:
+                self.error = str(errors)
+        else:
+            self.error = str(errors)
+
+        self.status_code = status_code
+        self.success_services: List[Dict] = []
+        for success_service in success_services:
+            self.success_services.append(success_service.get_attributes())
+
+        # fmt:off
+        self.json_data = {
+            "error": self.error_msg,
+            "status": self.status_code,
+            "success_services": self.success_services,
+            "failed_services": self.error
+        }
+        # fmt:on
+
+
 class ServiceNotFound(ServiceError):
     """Exception if the requested service does not exist in the DB"""
 
+    def __init__(self, error_msg: str, status_code: int, service_name: str):
+        super().__init__(error_msg, status_code)
+        self.service_name = service_name
+        # fmt:off
+        self.json_data = {
+            "error": self.error_msg,
+            "status": self.status_code,
+            "service": self.service_name
+        }
+        # fmt:on
+
+
+class PingError(ServiceError):
+    """Exception if Status Code is invalid"""
+
     def __init__(self, error_msg: str, status_code: int, service: Service):
         super().__init__(error_msg, status_code)
-        self.service = service
+        self.error_msg = error_msg
+        self.status_code = status_code
+        self.service = service.get_attributes()
         # fmt:off
         self.json_data = {
             "error": self.error_msg,
