@@ -84,3 +84,20 @@ class ServiceNotFound(ServiceError):
             "service": self.service_name
         }
         # fmt:on
+
+
+class PingError(ServiceError):
+    """Exception if Status Code is invalid"""
+
+    def __init__(self, error_msg: str, status_code: int, service: Service):
+        super().__init__(error_msg, status_code)
+        self.error_msg = error_msg
+        self.status_code = status_code
+        self.service = service.get_attributes()
+        # fmt:off
+        self.json_data = {
+            "error": self.error_msg,
+            "status": self.status_code,
+            "service": self.service
+        }
+        # fmt:on

@@ -5,7 +5,7 @@ from typing import List
 import httpx
 from httpx import Response
 from models.service import DBService, PingService, Service
-from models.service_error import ServiceBulkException, ServiceDuplicate, ServiceError, ServiceNotFound
+from models.service_error import PingError, ServiceBulkException, ServiceDuplicate, ServiceError, ServiceNotFound
 
 from services import get_db_services, safe_db_services, services_path
 
@@ -20,12 +20,23 @@ async def ping_service(services: List[Service]) -> List[PingService]:
         List[PingService]: Return of the Services with responsetime
     """
     responses: List[PingService] = []
+    failed_services: List[ServiceError] = []
     for service in services:
-        service: DBService = get_service(service.name)
-        async with httpx.AsyncClient() as client:
-            resp: Response = await client.get(service.get("url"))
-            resp.raise_for_status()
-            responses.append(PingService(**service, response_time=resp.elapsed.total_seconds()))
+        try:
+            service: DBService = get_service(service.name)
+            async with httpx.AsyncClient() as client:
+                resp: Response = await client.get(service.url)
+                resp.raise_for_status()
+                responses.append(PingService(**service.get_attributes(), response_time=resp.elapsed.total_seconds()))
+        except ServiceError as error:
+            failed_services.append(error)
+        except httpx.HTTPStatusError as error:
+            failed_services.append(PingError(str(error), resp.status_code, service))
+        except httpx.RequestError as error:
+            failed_services.append(ServiceError(str(error), 408))
+
+    if len(failed_services) > 0:
+        raise ServiceBulkException("Some Services got a Issue", 400, responses, failed_services)
     return responses
 
 
@@ -96,7 +107,7 @@ def get_service(name: str) -> DBService:
     for service in services:
         if service.name.lower() == name.lower():
             return service
-    raise ServiceNotFound("Der Service wurde nicht gefunden", 404, name)
+    raise ServiceNotFound("Der Service wurde nicht in der DB gefunden", 404, name)
 
 
 def delete_services(db_services: List[DBService]) -> List[DBService]:

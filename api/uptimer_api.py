@@ -3,7 +3,6 @@
 from typing import List
 
 import fastapi
-import httpx
 from fastapi import Depends
 from models.service import DBService, PingService, Service
 from models.service_error import ServiceBulkException, ServiceNotFound
@@ -24,10 +23,8 @@ async def ping_services(services: List[Service]) -> List[PingService]:
     """
     try:
         return await uptimer_service.ping_service(services)
-    except ServiceNotFound as error:
+    except ServiceBulkException as error:
         return fastapi.responses.JSONResponse(content=error.json_data, status_code=error.status_code)
-    except httpx.RequestError as error:
-        return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=408)
     except Exception as error:
         return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)
 
