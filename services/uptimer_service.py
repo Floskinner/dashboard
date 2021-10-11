@@ -19,7 +19,7 @@ async def ping_service(services: List[Service]) -> List[PingService]:
     Returns:
         List[PingService]: Return of the Services with responsetime
     """
-    responses: List[PingService] = list()
+    responses: List[PingService] = []
     for service in services:
         service: DBService = get_service(service.name)
         async with httpx.AsyncClient() as client:
@@ -41,8 +41,8 @@ def add_services(services: List[DBService]) -> List[DBService]:
     Returns:
         DBService: On succes return Serivce
     """
-    added_services: List[DBService] = list()
-    failed_services: List[ServiceError] = list()
+    added_services: List[DBService] = []
+    failed_services: List[ServiceError] = []
     for service in services:
         try:
             all_services: List[DBService] = get_db_services(services_path)
@@ -54,7 +54,7 @@ def add_services(services: List[DBService]) -> List[DBService]:
             added_services.append(service)
 
         except json.decoder.JSONDecodeError:
-            all_services: List[DBService] = list()
+            all_services: List[DBService] = []
             all_services.append(service)
             added_services.append(service)
 
@@ -112,7 +112,7 @@ def delete_services(db_services: List[DBService]) -> List[DBService]:
         List[DBService]: List of all deleted services
     """
     deleted_services: List[DBService] = []
-    failed_services: List[ServiceError] = list()
+    failed_services: List[ServiceError] = []
     try:
         db_services = get_services()
         for service in db_services:
