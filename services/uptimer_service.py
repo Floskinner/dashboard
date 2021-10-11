@@ -5,7 +5,7 @@ from typing import List
 import httpx
 from httpx import Response
 from models.service import DBService, PingService, Service
-from models.service_error import ServiceBulkException, ServiceDuplicate, ServiceNotFound
+from models.service_error import ServiceBulkException, ServiceDuplicate, ServiceError, ServiceNotFound
 
 from services import get_db_services, safe_db_services, services_path
 
@@ -30,29 +30,26 @@ async def ping_service(services: List[Service]) -> List[PingService]:
 
 
 def add_services(services: List[DBService]) -> List[DBService]:
-    """Add a Service to the DB. Stops adding on the first error of adding
+    """Add a Service to the DB.
 
     Args:
         services (DBService): Service with a requirements for the DB
 
     Raises:
-        ServiceAddException: If one of the Services is already in the DB (same name)
+        ServiceBulkException: If something bad happend
 
     Returns:
         DBService: On succes return Serivce
     """
     added_services: List[DBService] = list()
+    failed_services: List[ServiceError] = list()
     for service in services:
         try:
             all_services: List[DBService] = get_db_services(services_path)
             if service in all_services:
-                # fmt:off
                 raise ServiceDuplicate(
-                    "Der Serivce ist bereits vorhaben",
-                    409,
-                    all_services[all_services.index(service)]
+                    "Der Serivce ist bereits vorhaben", 409, all_services[all_services.index(service)]
                 )
-                # fmt:on
             all_services.append(service)
             added_services.append(service)
 
@@ -62,11 +59,13 @@ def add_services(services: List[DBService]) -> List[DBService]:
             added_services.append(service)
 
         except ServiceDuplicate as error:
-            raise ServiceBulkException(
-                "Can not add Services to DB", error.status_code, added_services, error
-            ) from error
+            failed_services.append(error)
+
         finally:
             safe_db_services(all_services, services_path)
+
+    if len(failed_services) > 0:
+        raise ServiceBulkException("Can not add all Services to DB", 400, added_services, failed_services)
 
     return added_services
 
@@ -100,27 +99,32 @@ def get_service(name: str) -> DBService:
     raise ServiceNotFound("Der Service wurde nicht gefunden", 404, name)
 
 
-def delete_services(services: List[DBService]) -> List[DBService]:
-    """Delete the Services from the DB
+def delete_services(db_services: List[DBService]) -> List[DBService]:
+    """Delete the Services.
 
     Args:
-        services (List[DBService]): Services to delete
+        db_services (List[DBService]): List of all Services to delete
+
+    Raises:
+        ServiceBulkException: If something bad happen
 
     Returns:
-        List[DBService]: return the Service if success
+        List[DBService]: List of all deleted services
     """
     deleted_services: List[DBService] = []
+    failed_services: List[ServiceError] = list()
     try:
-        for service in services:
+        db_services = get_services()
+        for service in db_services:
             service = get_service(service.name)
-            services = get_services()
-            services.remove(service)
-            safe_db_services(services, services_path)
+            db_services.remove(service)
             deleted_services.append(service)
     except ServiceNotFound as error:
-        raise ServiceBulkException(
-            "Can not delete Service. Service not found", error.status_code, deleted_services, service
-        ) from error
-    except Exception as error:
-        raise ServiceBulkException(str(error), 500, deleted_services, service) from error
+        failed_services.append(error)
+    else:
+        safe_db_services(db_services, services_path)
+
+    if len(failed_services) > 0:
+        raise ServiceBulkException("Can not delete all Services", 400, deleted_services, failed_services)
+
     return deleted_services

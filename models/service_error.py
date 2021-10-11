@@ -1,5 +1,5 @@
 """Contains all Exceptions for the Services"""
-from typing import Dict, List, Union
+from typing import Dict, Iterable, List, Union
 
 from models.service import DBService, Service
 
@@ -42,15 +42,21 @@ class ServiceBulkException(ServiceError):
         error_msg: str,
         status_code: int,
         success_services: List[Service],
-        error: Union[ServiceDuplicate, Service],
+        errors: Union[List[ServiceDuplicate], List[Service]],
     ):
         super().__init__(error_msg, status_code)
-        self.status_code = status_code
-        if isinstance(error, ServiceError):
-            self.error = error.json_data
-        else:
-            self.error = error.get_attributes()
 
+        if isinstance(errors, Iterable):
+            if isinstance(errors[0], ServiceError):
+                self.error = [error.json_data for error in errors]
+            elif isinstance(errors[0], Service):
+                self.error = [error.get_attributes() for error in errors]
+            else:
+                self.error = str(errors)
+        else:
+            self.error = str(errors)
+
+        self.status_code = status_code
         self.success_services: List[Dict] = []
         for success_service in success_services:
             self.success_services.append(success_service.get_attributes())
@@ -60,7 +66,7 @@ class ServiceBulkException(ServiceError):
             "error": self.error_msg,
             "status": self.status_code,
             "success_services": self.success_services,
-            "failed_service": self.error
+            "failed_services": self.error
         }
         # fmt:on
 
