@@ -6,7 +6,7 @@ import fastapi
 import httpx
 from fastapi import Depends
 from models.service import DBService, PingService, Service
-from models.service_error import ServiceAddException, ServiceNotFound
+from models.service_error import ServiceBulkException, ServiceNotFound
 from services import uptimer_service
 
 router = fastapi.APIRouter()
@@ -70,23 +70,23 @@ async def add_service(services: List[DBService]) -> List[DBService]:
     """
     try:
         return uptimer_service.add_services(services)
-    except ServiceAddException as error:
+    except ServiceBulkException as error:
         return fastapi.responses.JSONResponse(content=error.json_data, status_code=error.status_code)
 
 
-@router.delete("/api/service/delete", status_code=200, response_model=DBService)
-async def delete_service(service: Service) -> DBService:
-    """Delete Service from DB
+@router.delete("/api/services/delete", status_code=200, response_model=List[DBService])
+async def delete_service(services: List[Service]) -> DBService:
+    """Delete Services from DB
 
     Args:
-        service (Service): Service to delete
+        services (List[Service]): Services to delete
 
     Returns:
-        DBService: return the Service if success
+        List[DBService]: return the Services if success
     """
     try:
-        return uptimer_service.delete_service(service)
-    except ServiceNotFound as error:
+        return uptimer_service.delete_services(services)
+    except ServiceBulkException as error:
         return fastapi.responses.JSONResponse(content=error.json_data, status_code=error.status_code)
     except Exception as error:
         return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)

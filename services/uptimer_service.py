@@ -5,9 +5,9 @@ from typing import List
 import httpx
 from httpx import Response
 from models.service import DBService, PingService, Service
-from models.service_error import ServiceAddException, ServiceDuplicate, ServiceNotFound
+from models.service_error import ServiceBulkException, ServiceDuplicate, ServiceNotFound
 
-from services import get_json_data, services_path, set_json_data
+from services import get_db_services, safe_db_services, services_path
 
 
 async def ping_service(services: List[Service]) -> List[PingService]:
@@ -43,16 +43,8 @@ def add_services(services: List[DBService]) -> List[DBService]:
     """
     added_services: List[DBService] = list()
     for service in services:
-        # fmt:off
-        new_service = {
-            "name": service.name,
-            "url": service.url,
-            "ping": service.ping
-        }
-        # fmt:on
-
         try:
-            all_services: List[DBService] = get_json_data(services_path)
+            all_services: List[DBService] = get_db_services(services_path)
             if service in all_services:
                 # fmt:off
                 raise ServiceDuplicate(
@@ -61,18 +53,20 @@ def add_services(services: List[DBService]) -> List[DBService]:
                     all_services[all_services.index(service)]
                 )
                 # fmt:on
-            all_services.append(new_service)
+            all_services.append(service)
             added_services.append(service)
 
         except json.decoder.JSONDecodeError:
             all_services: List[DBService] = list()
-            all_services.append(new_service)
+            all_services.append(service)
             added_services.append(service)
 
         except ServiceDuplicate as error:
-            raise ServiceAddException("Can not add Services to DB", error.status_code, added_services, error) from error
+            raise ServiceBulkException(
+                "Can not add Services to DB", error.status_code, added_services, error
+            ) from error
         finally:
-            set_json_data(all_services, services_path)
+            safe_db_services(all_services, services_path)
 
     return added_services
 
@@ -83,7 +77,7 @@ def get_services() -> List[DBService]:
     Returns:
         List[DBService]: List of all services
     """
-    return get_json_data(services_path)
+    return get_db_services(services_path)
 
 
 def get_service(name: str) -> DBService:
@@ -98,24 +92,35 @@ def get_service(name: str) -> DBService:
     Returns:
         DBService: Return found Service with all informations
     """
-    services: List[DBService] = get_json_data(services_path)
+    services: List[DBService] = get_db_services(services_path)
+
     for service in services:
-        if service.get("name").lower() == name.lower():
+        if service.name.lower() == name.lower():
             return service
     raise ServiceNotFound("Der Service wurde nicht gefunden", 404, name)
 
 
-def delete_service(service: Service) -> DBService:
-    """Delete the Serive from the DB
+def delete_services(services: List[DBService]) -> List[DBService]:
+    """Delete the Services from the DB
 
     Args:
-        service (Service): Service to delete
+        services (List[DBService]): Services to delete
 
     Returns:
-        DBService: return the Service if success
+        List[DBService]: return the Service if success
     """
-    service = get_service(service.name)
-    services = get_services()
-    services.remove(service)
-    set_json_data(services, services_path)
-    return service
+    deleted_services: List[DBService] = []
+    try:
+        for service in services:
+            service = get_service(service.name)
+            services = get_services()
+            services.remove(service)
+            safe_db_services(services, services_path)
+            deleted_services.append(service)
+    except ServiceNotFound as error:
+        raise ServiceBulkException(
+            "Can not delete Service. Service not found", error.status_code, deleted_services, service
+        ) from error
+    except Exception as error:
+        raise ServiceBulkException(str(error), 500, deleted_services, service) from error
+    return deleted_services
