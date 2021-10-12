@@ -1,9 +1,8 @@
-from typing import List
 import pytest
-from pytest_mock import MockerFixture
-from pytest_httpx import HTTPXMock
 from models.service import DBService, PingService
 from models.service_error import ServiceBulkException
+from pytest_httpx import HTTPXMock
+from pytest_mock import MockerFixture
 from services import uptimer_service
 
 
