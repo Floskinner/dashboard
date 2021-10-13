@@ -55,7 +55,7 @@ async def get_service(service: Service = Depends()) -> DBService:
     return uptimer_service.get_service(service.name)
 
 
-@router.get("/api/services", response_model=List[DBService])
+@router.get("/api/services/config", response_model=List[DBService])
 async def get_services() -> List[DBService]:
     """Get all saved Services
 
