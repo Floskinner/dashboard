@@ -110,7 +110,7 @@ def get_service(name: str) -> DBService:
     raise ServiceNotFound("Der Service wurde nicht in der DB gefunden", 404, name)
 
 
-def delete_services(db_services: List[DBService]) -> List[DBService]:
+def delete_services(services_to_remove: List[DBService]) -> List[DBService]:
     """Delete the Services.
 
     Args:
@@ -126,12 +126,17 @@ def delete_services(db_services: List[DBService]) -> List[DBService]:
     failed_services: List[ServiceError] = []
     try:
         db_services = get_services()
-        for service in db_services:
-            service = get_service(service.name)
+        for service in services_to_remove:
+            # Check if the Service is in the DB-Services
+            for db_service in db_services:
+                if db_service.name == service.name:
+                    service = db_service
+                    break
+            # Remove the Service if it can be found
             db_services.remove(service)
             deleted_services.append(service)
-    except ServiceNotFound as error:
-        failed_services.append(error)
+    except ValueError:
+        failed_services.append(ServiceNotFound("Service not Found", 404, service.name))
     else:
         safe_db_services(db_services, services_path)
 
