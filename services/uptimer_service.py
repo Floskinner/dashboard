@@ -110,11 +110,11 @@ def get_service(name: str) -> DBService:
     raise ServiceNotFound("Der Service wurde nicht in der DB gefunden", 404, name)
 
 
-def delete_services(services_to_remove: List[DBService]) -> List[DBService]:
+def delete_services(services_to_remove: List[Service]) -> List[DBService]:
     """Delete the Services.
 
     Args:
-        db_services (List[DBService]): List of all Services to delete
+        db_services (List[Service]): List of all Services to delete
 
     Raises:
         ServiceBulkException: If something bad happen
