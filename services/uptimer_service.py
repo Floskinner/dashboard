@@ -1,6 +1,6 @@
 """Backend manager for the Services"""
 import json
-from typing import List
+from typing import List, Union
 
 import httpx
 from httpx import Response
@@ -10,11 +10,11 @@ from models.service_error import PingError, ServiceBulkException, ServiceDuplica
 from services import get_db_services, safe_db_services, services_path
 
 
-async def ping_service(services: List[Service]) -> List[PingService]:
-    """Ping the given Services to check if this is reachable. The Services has to be in the DB
+async def ping_services(services: List[Union[Service, DBService]]) -> List[PingService]:
+    """Ping the given Services to check if this is reachable. If the Service got a URL it has not to be in the DB
 
     Args:
-        services (List[Service]): Services to Ping (only Name required)
+        services (List[Service|DBService]): Services to Ping (only Name required)
 
     Returns:
         List[PingService]: Return of the Services with responsetime
@@ -23,7 +23,9 @@ async def ping_service(services: List[Service]) -> List[PingService]:
     failed_services: List[ServiceError] = []
     for service in services:
         try:
-            service: DBService = get_service(service.name)
+            if not hasattr(service, "url"):
+                service: DBService = get_service(service.name)
+
             async with httpx.AsyncClient() as client:
                 resp: Response = await client.get(service.url)
                 resp.raise_for_status()

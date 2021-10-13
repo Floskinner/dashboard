@@ -53,10 +53,10 @@ def fake_db_obj(fake_db_json: List[Dict]) -> List[DBService]:
         (500, True)
     ]
 )
-# fmt:on
 @pytest.mark.asyncio
 @pytest.mark.xfail  # XXX: fails until BUG is fixed
-async def test_ping_services(
+# fmt:on
+async def test_ping_services_db(
     httpx_mock: HTTPXMock,
     mocker: MockerFixture,
     fake_db_obj: List[DBService],
@@ -79,22 +79,64 @@ async def test_ping_services(
     if exception:
         # Code >= 400
         with pytest.raises(ServiceBulkException):
-            await uptimer_service.ping_service(service_requests)
+            await uptimer_service.ping_services(service_requests)
     else:
         # Code < 400
         excpected_response = [PingService(**s.get_attributes(), response_time=0) for s in fake_db_obj]
-        response = await uptimer_service.ping_service(service_requests)
+        response = await uptimer_service.ping_services(service_requests)
         assert response == excpected_response
 
     # No service found
     with pytest.raises(ServiceBulkException):
-        await uptimer_service.ping_service([service_requests[0], db_service_fail])
+        await uptimer_service.ping_services([service_requests[0], db_service_fail])
 
 
-def test_delete(
+# fmt:off
+@pytest.mark.parametrize(
+    "status_code, exception",
+    [
+        (100, False),
+        (200, False),
+        (300, False),
+        (400, True),
+        (500, True)
+    ]
+)
+@pytest.mark.asyncio
+@pytest.mark.xfail  # XXX: fails until BUG is fixed
+# fmt:on
+async def test_ping_services_new(
+    httpx_mock: HTTPXMock,
+    mocker: MockerFixture,
+    fake_db_obj: List[DBService],
+    db_service_ok: DBService,
     db_service_fail: DBService,
-    fake_db_obj: List[DBService]
+    status_code: int,
+    exception: bool,
 ):
+    # Request with data that is not in der DB but with url
+    service_request = [DBService(name="custom", url="https://dummy.test")]
+
+    # Mock httpx responses
+    httpx_mock.add_response(status_code=status_code, url=service_request[0].url)
+
+    # BUG: do not return timedelta with 0 total_seconds()
+    mocker.patch.object(target=Response, attribute="_elapsed", new=timedelta(), create=True)
+    # mocker.patch("httpx.Response.elapsed", return_value=timedelta(), create=True)
+
+    # Test status_code
+    if exception:
+        # Code >= 400
+        with pytest.raises(ServiceBulkException):
+            await uptimer_service.ping_services(service_request)
+    else:
+        # Code < 400
+        excpected_response = [PingService(**s.get_attributes(), response_time=0) for s in service_request]
+        response = await uptimer_service.ping_services(service_request)
+        assert response == excpected_response
+
+
+def test_delete(db_service_fail: DBService, fake_db_obj: List[DBService]):
 
     # Delete all services
     assert fake_db_obj == uptimer_service.delete_services(fake_db_obj)

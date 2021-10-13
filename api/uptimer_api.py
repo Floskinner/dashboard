@@ -22,7 +22,7 @@ async def ping_services(services: List[Service]) -> List[PingService]:
         List[PingService]: Services with his responsetime
     """
     try:
-        return await uptimer_service.ping_service(services)
+        return await uptimer_service.ping_services(services)
     except ServiceBulkException as error:
         return fastapi.responses.JSONResponse(content=error.json_data, status_code=error.status_code)
     except Exception as error:
