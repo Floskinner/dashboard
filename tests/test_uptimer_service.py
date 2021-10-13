@@ -90,30 +90,17 @@ async def test_ping_services(
         await uptimer_service.ping_service([service_requests[0], db_service_fail])
 
 
-@pytest.mark.parametrize(
-    "number_of_requests",
-    [
-        (1),
-        (10),
-    ],
-)
 def test_delete(
-    number_of_requests: int,
     db_service_fail: DBService,
-    fake_db_obj: List[DBService],
+    fake_db_obj: List[DBService]
 ):
-    # Fake the DB with only db_service_ok data
 
-    # Expected Result if success
-    excepted_result = [fake_db_obj[i] for i in range(number_of_requests)]
+    # Delete all services
+    assert fake_db_obj == uptimer_service.delete_services(fake_db_obj)
 
-    # Successfull delete Services with DBService objects
-    services_to_delete = [fake_db_obj[i] for i in range(number_of_requests)]
-    assert excepted_result == uptimer_service.delete_services(services_to_delete)
-
-    # Successfull delete Services with Service objects
-    services_to_delete = [Service(**fake_db_obj[i].get_attributes()) for i in range(number_of_requests)]
-    assert excepted_result == uptimer_service.delete_services(services_to_delete)
+    # Delete Services with Service object
+    services_to_delete = [Service(name=s.name) for s in fake_db_obj]
+    assert fake_db_obj == uptimer_service.delete_services(services_to_delete)
 
     # Raise because no service found
     services_to_delete = [db_service_fail]
