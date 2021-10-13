@@ -1,11 +1,12 @@
 from datetime import timedelta
 from typing import Dict, List
+
 import pytest
 from httpx import Response
-from pytest_httpx import HTTPXMock
-from pytest_mock import MockerFixture
 from models.service import DBService, PingService, Service
 from models.service_error import ServiceBulkException
+from pytest_httpx import HTTPXMock
+from pytest_mock import MockerFixture
 from services import uptimer_service
 
 
@@ -71,7 +72,7 @@ async def test_ping_services(
     httpx_mock.add_response(status_code=status_code, url=db_service_ok.url)
 
     # BUG: do not return timedelta with 0 total_seconds()
-    mocker.patch.object(target=Response, attribute="elapsed", new=timedelta())
+    mocker.patch.object(target=Response, attribute="_elapsed", new=timedelta(), create=True)
     # mocker.patch("httpx.Response.elapsed", return_value=timedelta(), create=True)
 
     # Test status_code
