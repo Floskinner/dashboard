@@ -4,7 +4,7 @@ from typing import Dict, List
 import pytest
 from httpx import Response
 from models.service import DBService, PingService, Service
-from models.service_error import ServiceBulkException
+from models.service_error import ServiceBulkException, ServiceNotFound
 from pytest_httpx import HTTPXMock
 from pytest_mock import MockerFixture
 from services import uptimer_service
@@ -154,3 +154,15 @@ def test_delete(db_service_fail: DBService, fake_db_obj: List[DBService]):
     services_to_delete = [fake_db_obj[0], fake_db_obj[0]]
     with pytest.raises(ServiceBulkException):
         uptimer_service.delete_services(services_to_delete)
+
+
+def test_get_service(db_service_fail: DBService, fake_db_obj: List[DBService]):
+    # Get all Services
+    assert fake_db_obj == uptimer_service.get_services()
+
+    # Get one Service
+    assert fake_db_obj[0] == uptimer_service.get_service(fake_db_obj[0].name)
+
+    # Service not found
+    with pytest.raises(ServiceNotFound):
+        uptimer_service.get_service(db_service_fail.name)
