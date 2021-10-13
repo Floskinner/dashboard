@@ -138,22 +138,17 @@ async def test_ping_services_new(
 
 def test_delete(db_service_fail: DBService, fake_db_obj: List[DBService]):
 
-    # Delete all services
-    assert fake_db_obj == uptimer_service.delete_services(fake_db_obj)
+    services_to_delete = fake_db_obj[0]
 
-    # Delete Services with Service object
-    services_to_delete = [Service(name=s.name) for s in fake_db_obj]
-    assert fake_db_obj == uptimer_service.delete_services(services_to_delete)
+    # Delete service
+    assert services_to_delete == uptimer_service.delete_service(services_to_delete)
+
+    # Delete Service with Service object
+    assert services_to_delete == uptimer_service.delete_service(Service(name=services_to_delete.name))
 
     # Raise because no service found
-    services_to_delete = [db_service_fail]
-    with pytest.raises(ServiceBulkException):
-        uptimer_service.delete_services(services_to_delete)
-
-    # Raise because the same service got deleted twice
-    services_to_delete = [fake_db_obj[0], fake_db_obj[0]]
-    with pytest.raises(ServiceBulkException):
-        uptimer_service.delete_services(services_to_delete)
+    with pytest.raises(ServiceNotFound):
+        uptimer_service.delete_service(db_service_fail)
 
 
 def test_get_service(db_service_fail: DBService, fake_db_obj: List[DBService]):

@@ -5,7 +5,8 @@ from typing import List
 import fastapi
 from fastapi import Depends
 from models.service import DBService, PingService, Service
-from models.service_error import ServiceBulkException, ServiceNotFound
+from models.service_error import ServiceBulkException, ServiceError, ServiceNotFound
+from fastapi.encoders import jsonable_encoder
 from services import uptimer_service
 
 router = fastapi.APIRouter()
@@ -81,19 +82,36 @@ async def add_service(services: List[DBService]) -> List[DBService]:
         return fastapi.responses.JSONResponse(content=error.json_data, status_code=error.status_code)
 
 
-@router.delete("/api/services/delete", status_code=200, response_model=List[DBService])
-async def delete_service(services: List[Service]) -> DBService:
-    """Delete Services from DB
-
-    Args:
-        services (List[Service]): Services to delete
-
-    Returns:
-        List[DBService]: return the Services if success
-    """
+@router.delete("/api/service/{name}/delete", status_code=200, response_model=DBService)
+async def delete_service(service: Service) -> DBService:
     try:
-        return uptimer_service.delete_services(services)
-    except ServiceBulkException as error:
+        uptimer_service.delete_service(service)
+    except ServiceNotFound as error:
         return fastapi.responses.JSONResponse(content=error.json_data, status_code=error.status_code)
     except Exception as error:
         return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)
+
+
+@router.delete("/api/services/delete", status_code=200, response_model=List[DBService])
+async def delete_services(services: List[Service]) -> DBService:
+    s_services: List[DBService] = []
+    f_services: List[ServiceError] = []
+    for service in services:
+        try:
+            s_services.append(uptimer_service.delete_service(service))
+        except ServiceNotFound as error:
+            f_services.append(error)
+        except Exception as error:
+            f_services.append(ServiceError(str(error), status_code=500))
+
+    if len(f_services) > 0:
+        # fmt:off
+        content = {
+            "error": "Not all Service are deleted",
+            "success": jsonable_encoder(s_services),
+            "faild": jsonable_encoder(f_services)
+        }
+        # fmt:on
+        return fastapi.responses.JSONResponse(content=content, status_code=404)
+
+    return s_services

@@ -112,37 +112,9 @@ def get_service(name: str) -> DBService:
     raise ServiceNotFound("Der Service wurde nicht in der DB gefunden", 404, name)
 
 
-def delete_services(services_to_remove: List[Service]) -> List[DBService]:
-    """Delete the Services.
-
-    Args:
-        db_services (List[Service]): List of all Services to delete
-
-    Raises:
-        ServiceBulkException: If something bad happen
-
-    Returns:
-        List[DBService]: List of all deleted services
-    """
-    deleted_services: List[DBService] = []
-    failed_services: List[ServiceError] = []
-    try:
-        db_services = get_services()
-        for service in services_to_remove:
-            # Check if the Service is in the DB-Services
-            for db_service in db_services:
-                if db_service.name == service.name:
-                    service = db_service
-                    break
-            # Remove the Service if it can be found
-            db_services.remove(service)
-            deleted_services.append(service)
-    except ValueError:
-        failed_services.append(ServiceNotFound("Service not Found", 404, service.name))
-    else:
-        safe_db_services(db_services, services_path)
-
-    if len(failed_services) > 0:
-        raise ServiceBulkException("Can not delete all Services", 400, deleted_services, failed_services)
-
-    return deleted_services
+def delete_service(service: Service) -> DBService:
+    service = get_service(service.name)
+    db_services = get_services()
+    db_services.remove(service)
+    safe_db_services(db_services, services_path)
+    return service
