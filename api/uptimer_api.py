@@ -45,6 +45,16 @@ async def ping_service(service: Service = Depends()) -> PingService:
     return response
 
 
+@router.get("/api/service/{name}", response_model=DBService)
+async def get_service(service: Service = Depends()) -> DBService:
+    """Get specific DB Service
+
+    Returns:
+        DBService: Service with config
+    """
+    return uptimer_service.get_service(service.name)
+
+
 @router.get("/api/services", response_model=List[DBService])
 async def get_services() -> List[DBService]:
     """Get all saved Services
