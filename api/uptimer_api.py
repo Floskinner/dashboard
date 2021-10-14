@@ -5,7 +5,7 @@ from typing import List
 import fastapi
 from fastapi.encoders import jsonable_encoder
 from models.service import DBService, PingService, Service
-from models.service_error import PingError, ServiceBulkException, ServiceDuplicate, ServiceError, ServiceNotFound
+from models.service_error import PingError, ServiceDuplicate, ServiceError, ServiceNotFound
 from services import uptimer_service
 
 router = fastapi.APIRouter()
@@ -58,7 +58,13 @@ async def ping_services(services: List[PingService]) -> List[PingService]:
             f_services.append(ServiceError(str(error), status_code=500, service=service))
 
     if len(f_services) > 0:
-        content = ServiceBulkException("Not all Service are pingable", 400, s_services, f_services)
+        # fmt:off
+        content = {
+            "error": "Not all Service are added",
+            "success": jsonable_encoder(s_services),
+            "faild": jsonable_encoder(f_services)
+        }
+        # fmt:on
         return fastapi.responses.JSONResponse(content=jsonable_encoder(content), status_code=404)
 
     return s_services
@@ -71,7 +77,12 @@ async def get_service(name: str) -> DBService:
     Returns:
         DBService: Service with config
     """
-    return uptimer_service.get_service(name)
+    try:
+        return uptimer_service.get_service(name)
+    except ServiceNotFound as error:
+        return fastapi.responses.JSONResponse(content=jsonable_encoder(error), status_code=error.status_code)
+    except Exception as error:
+        return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)
 
 
 @router.get("/api/services/config", response_model=List[DBService])
@@ -81,7 +92,10 @@ async def get_services() -> List[DBService]:
     Returns:
         List[DBService]: List of Services
     """
-    return uptimer_service.get_services()
+    try:
+        return uptimer_service.get_services()
+    except Exception as error:
+        return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)
 
 
 @router.post("/api/service/{name}/add", response_model=DBService)
