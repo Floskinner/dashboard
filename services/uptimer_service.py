@@ -1,98 +1,75 @@
 """Backend manager for the Services"""
-import json
-from typing import List, Union
+from typing import List
 
 import httpx
 from httpx import Response
-from models.service import DBService, PingService, Service
-from models.service_error import PingError, ServiceBulkException, ServiceDuplicate, ServiceError, ServiceNotFound
+from models.service import ConfigService, PingService, Service
+from models.service_error import PingError, ServiceDuplicate, ServiceNotFound
 
 from services import get_db_services, safe_db_services, services_path
 
 
-async def ping_services(services: List[Union[Service, DBService]]) -> List[PingService]:
-    """Ping the given Services to check if this is reachable. If the Service got a URL it has not to be in the DB
+async def ping_service(service: PingService) -> PingService:
+    """Ping the Service with the given url or search for the url in the service configuration
 
     Args:
-        services (List[Service|DBService]): Services to Ping (only Name required)
-
-    Returns:
-        List[PingService]: Return of the Services with responsetime
-    """
-    responses: List[PingService] = []
-    failed_services: List[ServiceError] = []
-    for service in services:
-        try:
-            if not hasattr(service, "url"):
-                service: DBService = get_service(service.name)
-
-            async with httpx.AsyncClient() as client:
-                resp: Response = await client.get(service.url)
-                resp.raise_for_status()
-                responses.append(PingService(**service.get_attributes(), response_time=resp.elapsed.total_seconds()))
-        except ServiceError as error:
-            failed_services.append(error)
-        except httpx.HTTPStatusError as error:
-            failed_services.append(PingError(str(error), resp.status_code, service))
-        except httpx.RequestError as error:
-            failed_services.append(ServiceError(str(error), 408))
-
-    if len(failed_services) > 0:
-        raise ServiceBulkException("Some Services got a Issue", 400, responses, failed_services)
-    return responses
-
-
-def add_services(services: List[DBService]) -> List[DBService]:
-    """Add a Service to the DB.
-
-    Args:
-        services (DBService): Service with a requirements for the DB
+        service (PingService): Services to check
 
     Raises:
-        ServiceBulkException: If something bad happend
+        PingError: Error if status_code >= 400
+        PingError: Error if the url is invalid
 
     Returns:
-        DBService: On succes return Serivce
+        PingService: Service with filled response_time
     """
-    added_services: List[DBService] = []
-    failed_services: List[ServiceError] = []
-    for service in services:
-        try:
-            all_services: List[DBService] = get_db_services(services_path)
-            if service in all_services:
-                raise ServiceDuplicate(
-                    "Der Serivce ist bereits vorhaben", 409, all_services[all_services.index(service)]
-                )
-            all_services.append(service)
-            added_services.append(service)
-
-        except json.decoder.JSONDecodeError:
-            all_services: List[DBService] = []
-            all_services.append(service)
-            added_services.append(service)
-
-        except ServiceDuplicate as error:
-            failed_services.append(error)
-
-        finally:
-            safe_db_services(all_services, services_path)
-
-    if len(failed_services) > 0:
-        raise ServiceBulkException("Can not add all Services to DB", 400, added_services, failed_services)
-
-    return added_services
+    if service.url is None:
+        db_service: ConfigService = get_service(service.name)
+        service = PingService(**dict(db_service))
+    try:
+        async with httpx.AsyncClient() as client:
+            resp: Response = await client.get(service.url)
+            resp.raise_for_status()
+            service.response_time = resp.elapsed.total_seconds()
+            return service
+    except httpx.HTTPStatusError as error:
+        raise PingError(str(error), 404, service) from error
+    except httpx.RequestError as error:
+        raise PingError(str(error), 408, service) from error
 
 
-def get_services() -> List[DBService]:
+def add_service(service: ConfigService) -> ConfigService:
+    """Add the service to the service configuration. Unique Name required
+
+    Args:
+        service (ConfigService): Service to add
+
+    Raises:
+        ServiceDuplicate: Service is already in the DB. Unique Name required
+
+    Returns:
+        ConfigService: Added service
+    """
+    try:
+        get_service(service.name)
+    except ServiceNotFound:
+        db_services = get_services()
+        db_services.append(service)
+        safe_db_services(db_services, services_path)
+        return service
+    else:
+        raise ServiceDuplicate("Service Name is already in the configuration", 409, service)
+
+
+def get_services() -> List[ConfigService]:
     """Get all saved services from the JSON file
 
     Returns:
-        List[DBService]: List of all services
+        List[ConfigService]: List of all services
     """
     return get_db_services(services_path)
 
 
-def get_service(name: str) -> DBService:
+def get_service(name: str) -> ConfigService:
     """Get a Service from the DB
 
     Args:
@@ -102,9 +79,9 @@ def get_service(name: str) -> DBService:
         ServiceNotFound: If the Service can not be found
 
     Returns:
-        DBService: Return found Service with all informations
+        ConfigService: Return found Service with all informations
     """
-    services: List[DBService] = get_db_services(services_path)
+    services: List[ConfigService] = get_db_services(services_path)
 
     for service in services:
         if service.name.lower() == name.lower():
@@ -112,37 +89,17 @@ def get_service(name: str) -> DBService:
     raise ServiceNotFound("Der Service wurde nicht in der DB gefunden", 404, name)
 
 
-def delete_services(services_to_remove: List[Service]) -> List[DBService]:
-    """Delete the Services.
+def delete_service(service: Service) -> ConfigService:
+    """Delete one Service from the services configuration
 
     Args:
-        db_services (List[Service]): List of all Services to delete
-
-    Raises:
-        ServiceBulkException: If something bad happen
+        service (Service): Service to delete from the config
 
     Returns:
-        List[DBService]: List of all deleted services
+        ConfigService: Return Service if success
     """
-    deleted_services: List[DBService] = []
-    failed_services: List[ServiceError] = []
-    try:
-        db_services = get_services()
-        for service in services_to_remove:
-            # Check if the Service is in the DB-Services
-            for db_service in db_services:
-                if db_service.name == service.name:
-                    service = db_service
-                    break
-            # Remove the Service if it can be found
-            db_services.remove(service)
-            deleted_services.append(service)
-    except ValueError:
-        failed_services.append(ServiceNotFound("Service not Found", 404, service.name))
-    else:
-        safe_db_services(db_services, services_path)
-
-    if len(failed_services) > 0:
-        raise ServiceBulkException("Can not delete all Services", 400, deleted_services, failed_services)
-
-    return deleted_services
+    service = get_service(service.name)
+    db_services = get_services()
+    db_services.remove()
+    safe_db_services(db_services, services_path)
+    return service

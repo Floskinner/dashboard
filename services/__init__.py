@@ -3,32 +3,34 @@ import json
 from pathlib import Path
 from typing import Any, List
 
-from models.service import DBService
+from fastapi.encoders import jsonable_encoder
+
+from models.service import ConfigService
 
 services_path = Path("data/services.json").absolute()
 services_path.touch(mode=644)
 
 
-def get_db_services(path: Path) -> List[DBService]:
-    """Get the DBServices Classes from the DB
+def get_db_services(path: Path) -> List[ConfigService]:
+    """Get the ConfigServices Classes from the DB
 
     Args:
         path (Path): Path to the JSON-DB
 
     Returns:
-        List[DBService]: All DBServices
+        List[ConfigService]: All ConfigServices
     """
-    return [DBService(**service) for service in get_json_data(path)]
+    return [ConfigService(**service) for service in get_json_data(path)]
 
 
-def safe_db_services(services: List[DBService], path: Path) -> None:
-    """Safe all DBServices to the JSON DB
+def safe_db_services(services: List[ConfigService], path: Path) -> None:
+    """Safe all ConfigServices to the JSON DB
 
     Args:
-        services (List[DBService]): Services to safe
+        services (List[ConfigService]): Services to safe
         path (Path): Path to the JSON-DB
     """
-    json_data = [service.get_attributes() for service in services]
+    json_data = jsonable_encoder(services)
     set_json_data(json_data, path)
 
 
