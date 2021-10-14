@@ -4,46 +4,65 @@ from typing import List
 
 import fastapi
 from fastapi import Depends
-from models.service import DBService, PingService, Service
-from models.service_error import ServiceBulkException, ServiceError, ServiceNotFound
 from fastapi.encoders import jsonable_encoder
+from models.service import DBService, PingService, Service
+from models.service_error import PingError, ServiceBulkException, ServiceError, ServiceNotFound
 from services import uptimer_service
 
 router = fastapi.APIRouter()
 
 
-@router.get("/api/services/ping", response_model=List[PingService])
-async def ping_services(services: List[Service]) -> List[PingService]:
-    """Ping Services that is in the services.json
+@router.get("/api/service/{name}/ping", response_model=PingService)
+async def ping_service(service: Service = Depends()) -> PingService:
+    """Ping a service that is safed in the services config
 
     Args:
-        services (List[Service]): Services with only a name
+        service (Service): Service to ping
 
     Returns:
-        List[PingService]: Services with his responsetime
+        PingService: Service with response_time
+        fastapi.responses.JSONResponse: If some Exception are made with detailed information
     """
     try:
-        return await uptimer_service.ping_services(services)
-    except ServiceBulkException as error:
-        return fastapi.responses.JSONResponse(content=error.json_data, status_code=error.status_code)
+        service = PingService(name=service.name)
+        return await uptimer_service.ping_service(service)
+    except ServiceNotFound as error:
+        return fastapi.responses.JSONResponse(content=jsonable_encoder(error), status_code=error.status_code)
+    except PingError as error:
+        return fastapi.responses.JSONResponse(content=jsonable_encoder(error), status_code=error.status_code)
     except Exception as error:
         return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)
 
 
-@router.get("/api/service/{name}/ping", response_model=PingService)
-async def ping_service(service: Service = Depends()) -> PingService:
-    """Ping only one Service that is in the services.json
+# TODO: API documentation is not correct for the request body
+@router.get("/api/services/ping", response_model=List[PingService])
+async def ping_services(services: List[PingService]) -> List[PingService]:
+    """Ping all given Services with only a name (check services config for url) or with given url
 
     Args:
-        service (Service): Service to Ping
+        services (List[PingService]): Services to check. URL is optional and response_time not needed
 
     Returns:
-        PingService: Service with responsetime
+        List[PingService]: All Services with response_time
+        fastapi.responses.JSONResponse: If some Exception are made with detailed information
     """
-    response = await ping_services([service])
-    if isinstance(response, list):
-        return response[0]
-    return response
+    s_services: List[PingService] = []
+    f_services: List[ServiceError] = []
+    for service in services:
+        try:
+            s_services.append(await uptimer_service.ping_service(service))
+        except ServiceNotFound as error:
+            f_services.append(error)
+        except PingError as error:
+            f_services.append(error)
+        except Exception as error:
+            f_services.append(ServiceError(str(error), status_code=500))
+
+    if len(f_services) > 0:
+        content = ServiceBulkException("Not all Service are pingable", 400, s_services, f_services)
+        return fastapi.responses.JSONResponse(content=jsonable_encoder(content), status_code=404)
+
+    return s_services
 
 
 @router.get("/api/service/{name}/config", response_model=DBService)
@@ -79,15 +98,15 @@ async def add_service(services: List[DBService]) -> List[DBService]:
     try:
         return uptimer_service.add_services(services)
     except ServiceBulkException as error:
-        return fastapi.responses.JSONResponse(content=error.json_data, status_code=error.status_code)
+        return fastapi.responses.JSONResponse(content=jsonable_encoder(error), status_code=error.status_code)
 
 
 @router.delete("/api/service/{name}/delete", status_code=200, response_model=DBService)
 async def delete_service(service: Service) -> DBService:
     try:
-        uptimer_service.delete_service(service)
+        return uptimer_service.delete_service(service)
     except ServiceNotFound as error:
-        return fastapi.responses.JSONResponse(content=error.json_data, status_code=error.status_code)
+        return fastapi.responses.JSONResponse(content=jsonable_encoder(error), status_code=error.status_code)
     except Exception as error:
         return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)
 

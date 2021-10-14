@@ -41,5 +41,5 @@ class DBService(Service):
 class PingService(Service):
     """Return Object if you pinged a Service"""
 
-    url: str
-    response_time: float
+    url: str = None
+    response_time: float = None

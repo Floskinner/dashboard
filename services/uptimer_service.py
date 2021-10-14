@@ -1,6 +1,6 @@
 """Backend manager for the Services"""
 import json
-from typing import List, Union
+from typing import List
 
 import httpx
 from httpx import Response
@@ -10,36 +10,32 @@ from models.service_error import PingError, ServiceBulkException, ServiceDuplica
 from services import get_db_services, safe_db_services, services_path
 
 
-async def ping_services(services: List[Union[Service, DBService]]) -> List[PingService]:
-    """Ping the given Services to check if this is reachable. If the Service got a URL it has not to be in the DB
+async def ping_service(service: PingService) -> PingService:
+    """Ping the Service with the given url or search for the url in the service configuration
 
     Args:
-        services (List[Service|DBService]): Services to Ping (only Name required)
+        service (PingService): Services to check
+
+    Raises:
+        PingError: Error if status_code >= 400
+        PingError: Error if the url is invalid
 
     Returns:
-        List[PingService]: Return of the Services with responsetime
+        PingService: Service with filled response_time
     """
-    responses: List[PingService] = []
-    failed_services: List[ServiceError] = []
-    for service in services:
-        try:
-            if not hasattr(service, "url"):
-                service: DBService = get_service(service.name)
-
-            async with httpx.AsyncClient() as client:
-                resp: Response = await client.get(service.url)
-                resp.raise_for_status()
-                responses.append(PingService(**service.get_attributes(), response_time=resp.elapsed.total_seconds()))
-        except ServiceError as error:
-            failed_services.append(error)
-        except httpx.HTTPStatusError as error:
-            failed_services.append(PingError(str(error), resp.status_code, service))
-        except httpx.RequestError as error:
-            failed_services.append(ServiceError(str(error), 408))
-
-    if len(failed_services) > 0:
-        raise ServiceBulkException("Some Services got a Issue", 400, responses, failed_services)
-    return responses
+    if service.url is None:
+        db_service: DBService = get_service(service.name)
+        service = PingService(**dict(db_service))
+    try:
+        async with httpx.AsyncClient() as client:
+            resp: Response = await client.get(service.url)
+            resp.raise_for_status()
+            service.response_time = resp.elapsed.total_seconds()
+            return service
+    except httpx.HTTPStatusError as error:
+        raise PingError(str(error), 404, service) from error
+    except httpx.RequestError as error:
+        raise PingError(str(error), 408, service) from error
 
 
 def add_services(services: List[DBService]) -> List[DBService]:
@@ -113,6 +109,14 @@ def get_service(name: str) -> DBService:
 
 
 def delete_service(service: Service) -> DBService:
+    """Delete one Service from the services configuration
+
+    Args:
+        service (Service): Service to delete from the config
+
+    Returns:
+        DBService: Return Service if success
+    """
     service = get_service(service.name)
     db_services = get_services()
     db_services.remove(service)
