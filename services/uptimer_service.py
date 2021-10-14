@@ -1,11 +1,10 @@
 """Backend manager for the Services"""
-import json
 from typing import List
 
 import httpx
 from httpx import Response
 from models.service import DBService, PingService, Service
-from models.service_error import PingError, ServiceBulkException, ServiceDuplicate, ServiceError, ServiceNotFound
+from models.service_error import PingError, ServiceDuplicate, ServiceNotFound
 
 from services import get_db_services, safe_db_services, services_path
 
@@ -38,45 +37,27 @@ async def ping_service(service: PingService) -> PingService:
         raise PingError(str(error), 408, service) from error
 
 
-def add_services(services: List[DBService]) -> List[DBService]:
-    """Add a Service to the DB.
+def add_service(service: DBService) -> DBService:
+    """Add the service to the service configuration. Unique Name required
 
     Args:
-        services (DBService): Service with a requirements for the DB
+        service (DBService): Service to add
 
     Raises:
-        ServiceBulkException: If something bad happend
+        ServiceDuplicate: Service is already in the DB. Unique Name required
 
     Returns:
-        DBService: On succes return Serivce
+        DBService: Added service
     """
-    added_services: List[DBService] = []
-    failed_services: List[ServiceError] = []
-    for service in services:
-        try:
-            all_services: List[DBService] = get_db_services(services_path)
-            if service in all_services:
-                raise ServiceDuplicate(
-                    "Der Serivce ist bereits vorhaben", 409, all_services[all_services.index(service)]
-                )
-            all_services.append(service)
-            added_services.append(service)
-
-        except json.decoder.JSONDecodeError:
-            all_services: List[DBService] = []
-            all_services.append(service)
-            added_services.append(service)
-
-        except ServiceDuplicate as error:
-            failed_services.append(error)
-
-        finally:
-            safe_db_services(all_services, services_path)
-
-    if len(failed_services) > 0:
-        raise ServiceBulkException("Can not add all Services to DB", 400, added_services, failed_services)
-
-    return added_services
+    try:
+        get_service(service.name)
+    except ServiceNotFound:
+        db_services = get_services()
+        db_services.append(service)
+        safe_db_services(db_services, services_path)
+        return service
+    else:
+        raise ServiceDuplicate("Service Name is already in the configuration", 409, service)
 
 
 def get_services() -> List[DBService]:

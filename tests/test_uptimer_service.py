@@ -4,7 +4,7 @@ from typing import Dict, List
 import pytest
 from httpx import Response
 from models.service import DBService, PingService, Service
-from models.service_error import PingError, ServiceNotFound
+from models.service_error import PingError, ServiceDuplicate, ServiceNotFound
 from pytest_httpx import HTTPXMock
 from pytest_mock import MockerFixture
 from services import uptimer_service
@@ -134,3 +134,12 @@ def test_get_service(config_service_fail: DBService, fake_config_obj: List[DBSer
     # Service not found
     with pytest.raises(ServiceNotFound):
         uptimer_service.get_service(config_service_fail.name)
+
+
+def test_add_service(fake_config_obj: List[DBService]):
+    new_service = DBService(name="foo", url="https://foo.url", ping="False")
+
+    assert new_service == uptimer_service.add_service(new_service)
+
+    with pytest.raises(ServiceDuplicate):
+        uptimer_service.add_service(fake_config_obj[0])
