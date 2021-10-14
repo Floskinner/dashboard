@@ -26,7 +26,7 @@ class Service(BaseModel):
         return attr
 
 
-class DBService(Service):
+class ConfigService(Service):
     """This Object can be written to the DB
 
     Args:

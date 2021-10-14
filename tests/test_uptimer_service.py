@@ -3,7 +3,7 @@ from typing import Dict, List
 
 import pytest
 from httpx import Response
-from models.service import DBService, PingService, Service
+from models.service import ConfigService, PingService, Service
 from models.service_error import PingError, ServiceDuplicate, ServiceNotFound
 from pytest_httpx import HTTPXMock
 from pytest_mock import MockerFixture
@@ -17,19 +17,19 @@ def init_conf_mock(mocker: MockerFixture, fake_config_json: Dict):
 
 
 @pytest.fixture
-def config_service_ok() -> DBService:
+def config_service_ok() -> ConfigService:
     data = {"name": "test", "url": "https://test.url", "ping": False}
-    return DBService(**data)
+    return ConfigService(**data)
 
 
 @pytest.fixture
-def config_service_fail() -> DBService:
+def config_service_fail() -> ConfigService:
     data = {"name": "fail", "url": "https://fail.url", "ping": False}
-    return DBService(**data)
+    return ConfigService(**data)
 
 
 @pytest.fixture
-def fake_config_json(config_service_ok: DBService) -> List[Dict]:
+def fake_config_json(config_service_ok: ConfigService) -> List[Dict]:
     db: List[Dict] = []
     for i in range(10):
         data = {"name": f"{config_service_ok.name}-{i}", "url": config_service_ok.url, "ping": config_service_ok.ping}
@@ -38,8 +38,8 @@ def fake_config_json(config_service_ok: DBService) -> List[Dict]:
 
 
 @pytest.fixture
-def fake_config_obj(fake_config_json: List[Dict]) -> List[DBService]:
-    return [DBService(**service) for service in fake_config_json]
+def fake_config_obj(fake_config_json: List[Dict]) -> List[ConfigService]:
+    return [ConfigService(**service) for service in fake_config_json]
 
 
 # fmt:off
@@ -59,9 +59,9 @@ def fake_config_obj(fake_config_json: List[Dict]) -> List[DBService]:
 async def test_ping_services(
     httpx_mock: HTTPXMock,
     mocker: MockerFixture,
-    fake_config_obj: List[DBService],
-    config_service_ok: DBService,
-    config_service_fail: DBService,
+    fake_config_obj: List[ConfigService],
+    config_service_ok: ConfigService,
+    config_service_fail: ConfigService,
     status_code: int,
     exception: bool,
 ):
@@ -109,7 +109,7 @@ async def test_ping_services(
         await uptimer_service.ping_service(PingService(name=config_service_fail.name))
 
 
-def test_delete(config_service_fail: DBService, fake_config_obj: List[DBService]):
+def test_delete(config_service_fail: ConfigService, fake_config_obj: List[ConfigService]):
 
     services_to_delete = fake_config_obj[0]
 
@@ -124,7 +124,7 @@ def test_delete(config_service_fail: DBService, fake_config_obj: List[DBService]
         uptimer_service.delete_service(config_service_fail)
 
 
-def test_get_service(config_service_fail: DBService, fake_config_obj: List[DBService]):
+def test_get_service(config_service_fail: ConfigService, fake_config_obj: List[ConfigService]):
     # Get all Services
     assert fake_config_obj == uptimer_service.get_services()
 
@@ -136,8 +136,8 @@ def test_get_service(config_service_fail: DBService, fake_config_obj: List[DBSer
         uptimer_service.get_service(config_service_fail.name)
 
 
-def test_add_service(fake_config_obj: List[DBService]):
-    new_service = DBService(name="foo", url="https://foo.url", ping="False")
+def test_add_service(fake_config_obj: List[ConfigService]):
+    new_service = ConfigService(name="foo", url="https://foo.url", ping="False")
 
     assert new_service == uptimer_service.add_service(new_service)
 

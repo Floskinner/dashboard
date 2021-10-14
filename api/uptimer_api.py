@@ -4,7 +4,7 @@ from typing import List
 
 import fastapi
 from fastapi.encoders import jsonable_encoder
-from models.service import DBService, PingService, Service
+from models.service import ConfigService, PingService, Service
 from models.service_error import PingError, ServiceDuplicate, ServiceError, ServiceNotFound
 from services import uptimer_service
 
@@ -70,12 +70,12 @@ async def ping_services(services: List[PingService]) -> List[PingService]:
     return s_services
 
 
-@router.get("/api/service/{name}/config", response_model=DBService)
-async def get_service(name: str) -> DBService:
+@router.get("/api/service/{name}/config", response_model=ConfigService)
+async def get_service(name: str) -> ConfigService:
     """Get specific DB Service Configuration
 
     Returns:
-        DBService: Service with config
+        ConfigService: Service with config
     """
     try:
         return uptimer_service.get_service(name)
@@ -85,12 +85,12 @@ async def get_service(name: str) -> DBService:
         return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)
 
 
-@router.get("/api/services/config", response_model=List[DBService])
-async def get_services() -> List[DBService]:
+@router.get("/api/services/config", response_model=List[ConfigService])
+async def get_services() -> List[ConfigService]:
     """Get all saved Services
 
     Returns:
-        List[DBService]: List of Services
+        List[ConfigService]: List of Services
     """
     try:
         return uptimer_service.get_services()
@@ -98,8 +98,8 @@ async def get_services() -> List[DBService]:
         return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)
 
 
-@router.post("/api/service/{name}/add", response_model=DBService)
-async def add_service(name: str, url: str, ping: bool = False) -> DBService:
+@router.post("/api/service/{name}/add", response_model=ConfigService)
+async def add_service(name: str, url: str, ping: bool = False) -> ConfigService:
     """Add one service to the configuration. The name hase to be unique in the configuration
 
     Args:
@@ -108,10 +108,10 @@ async def add_service(name: str, url: str, ping: bool = False) -> DBService:
         name (Service): Name of the Service. Defaults to Depends().
 
     Returns:
-        DBService: Created Service
+        ConfigService: Created Service
         fastapi.responses.JSONResponse: If some Exception are made with detailed information
     """
-    service = DBService(name=name, url=url, ping=ping)
+    service = ConfigService(name=name, url=url, ping=ping)
     try:
         return uptimer_service.add_service(service)
     except ServiceDuplicate as error:
@@ -120,18 +120,18 @@ async def add_service(name: str, url: str, ping: bool = False) -> DBService:
         return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)
 
 
-@router.post("/api/services/add", status_code=201, response_model=List[DBService])
-async def add_services(services: List[DBService]) -> List[DBService]:
+@router.post("/api/services/add", status_code=201, response_model=List[ConfigService])
+async def add_services(services: List[ConfigService]) -> List[ConfigService]:
     """Adding one or more Services to the configuration
 
     Args:
-        services (List[DBService]): Services to add
+        services (List[ConfigService]): Services to add
 
     Returns:
-        List[DBService]: All added services to the configuration
+        List[ConfigService]: All added services to the configuration
         fastapi.responses.JSONResponse: If some Exception are made with detailed information
     """
-    s_services: List[DBService] = []
+    s_services: List[ConfigService] = []
     f_services: List[ServiceError] = []
     for service in services:
         try:
@@ -154,15 +154,15 @@ async def add_services(services: List[DBService]) -> List[DBService]:
     return s_services
 
 
-@router.delete("/api/service/{name}/delete", status_code=200, response_model=DBService)
-async def delete_service(name: str) -> DBService:
+@router.delete("/api/service/{name}/delete", status_code=200, response_model=ConfigService)
+async def delete_service(name: str) -> ConfigService:
     """Delete one service from the service configuration
 
     Args:
         name (str): Name of the service
 
     Returns:
-        DBService: Deleted Service
+        ConfigService: Deleted Service
         fastapi.responses.JSONResponse: If some Exception are made with detailed information
     """
     try:
@@ -173,18 +173,18 @@ async def delete_service(name: str) -> DBService:
         return fastapi.responses.JSONResponse(content={"error": str(error)}, status_code=500)
 
 
-@router.delete("/api/services/delete", status_code=200, response_model=List[DBService])
-async def delete_services(services: List[Service]) -> DBService:
+@router.delete("/api/services/delete", status_code=200, response_model=List[ConfigService])
+async def delete_services(services: List[Service]) -> ConfigService:
     """Delete one or more services from the service configuration
 
     Args:
         services (List[Service]): All services to delete
 
     Returns:
-        DBService: Deleted Services
+        ConfigService: Deleted Services
         fastapi.responses.JSONResponse: If some Exception are made with detailed information
     """
-    s_services: List[DBService] = []
+    s_services: List[ConfigService] = []
     f_services: List[ServiceError] = []
     for service in services:
         try:

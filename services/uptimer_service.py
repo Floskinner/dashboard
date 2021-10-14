@@ -3,7 +3,7 @@ from typing import List
 
 import httpx
 from httpx import Response
-from models.service import DBService, PingService, Service
+from models.service import ConfigService, PingService, Service
 from models.service_error import PingError, ServiceDuplicate, ServiceNotFound
 
 from services import get_db_services, safe_db_services, services_path
@@ -23,7 +23,7 @@ async def ping_service(service: PingService) -> PingService:
         PingService: Service with filled response_time
     """
     if service.url is None:
-        db_service: DBService = get_service(service.name)
+        db_service: ConfigService = get_service(service.name)
         service = PingService(**dict(db_service))
     try:
         async with httpx.AsyncClient() as client:
@@ -37,17 +37,17 @@ async def ping_service(service: PingService) -> PingService:
         raise PingError(str(error), 408, service) from error
 
 
-def add_service(service: DBService) -> DBService:
+def add_service(service: ConfigService) -> ConfigService:
     """Add the service to the service configuration. Unique Name required
 
     Args:
-        service (DBService): Service to add
+        service (ConfigService): Service to add
 
     Raises:
         ServiceDuplicate: Service is already in the DB. Unique Name required
 
     Returns:
-        DBService: Added service
+        ConfigService: Added service
     """
     try:
         get_service(service.name)
@@ -60,16 +60,16 @@ def add_service(service: DBService) -> DBService:
         raise ServiceDuplicate("Service Name is already in the configuration", 409, service)
 
 
-def get_services() -> List[DBService]:
+def get_services() -> List[ConfigService]:
     """Get all saved services from the JSON file
 
     Returns:
-        List[DBService]: List of all services
+        List[ConfigService]: List of all services
     """
     return get_db_services(services_path)
 
 
-def get_service(name: str) -> DBService:
+def get_service(name: str) -> ConfigService:
     """Get a Service from the DB
 
     Args:
@@ -79,9 +79,9 @@ def get_service(name: str) -> DBService:
         ServiceNotFound: If the Service can not be found
 
     Returns:
-        DBService: Return found Service with all informations
+        ConfigService: Return found Service with all informations
     """
-    services: List[DBService] = get_db_services(services_path)
+    services: List[ConfigService] = get_db_services(services_path)
 
     for service in services:
         if service.name.lower() == name.lower():
@@ -89,14 +89,14 @@ def get_service(name: str) -> DBService:
     raise ServiceNotFound("Der Service wurde nicht in der DB gefunden", 404, name)
 
 
-def delete_service(service: Service) -> DBService:
+def delete_service(service: Service) -> ConfigService:
     """Delete one Service from the services configuration
 
     Args:
         service (Service): Service to delete from the config
 
     Returns:
-        DBService: Return Service if success
+        ConfigService: Return Service if success
     """
     service = get_service(service.name)
     db_services = get_services()
