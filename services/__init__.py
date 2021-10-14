@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 from typing import Any, List
 
+from fastapi.encoders import jsonable_encoder
+
 from models.service import ConfigService
 
 services_path = Path("data/services.json").absolute()
@@ -28,7 +30,7 @@ def safe_db_services(services: List[ConfigService], path: Path) -> None:
         services (List[ConfigService]): Services to safe
         path (Path): Path to the JSON-DB
     """
-    json_data = [service.get_attributes() for service in services]
+    json_data = jsonable_encoder(services)
     set_json_data(json_data, path)
 
 
