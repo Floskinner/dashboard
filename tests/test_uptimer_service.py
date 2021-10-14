@@ -2,18 +2,24 @@ from datetime import timedelta
 from typing import Dict, List
 
 import pytest
+import services
 from httpx import Response
 from models.service import ConfigService, PingService, Service
 from models.service_error import PingError, ServiceDuplicate, ServiceNotFound
+from py import path
 from pytest_httpx import HTTPXMock
 from pytest_mock import MockerFixture
-from services import uptimer_service
+from services import get_json_data, uptimer_service
 
 
-@pytest.fixture(autouse=True)
-def init_conf_mock(mocker: MockerFixture, fake_config_json: Dict):
-    mocker.patch("services.get_json_data", return_value=fake_config_json)
-    mocker.patch("services.set_json_data")
+@pytest.fixture()
+def conf_path(mocker: MockerFixture, fake_config_json: Dict, tmpdir: path.local):
+    tmp_path = tmpdir.join("test_config.json")
+    mocker.patch("services.services_path", new=tmp_path)
+    mocker.patch("services.uptimer_service.services_path", new=tmp_path)
+    services.set_json_data(fake_config_json, tmp_path)
+
+    return tmp_path
 
 
 @pytest.fixture
@@ -64,6 +70,7 @@ async def test_ping_services(
     config_service_fail: ConfigService,
     status_code: int,
     exception: bool,
+    conf_path: path.local,  # Import to Mock the config
 ):
     # Mock httpx responses
     httpx_mock.add_response(status_code=status_code, url=config_service_ok.url)
@@ -108,23 +115,33 @@ async def test_ping_services(
     with pytest.raises(ServiceNotFound):
         await uptimer_service.ping_service(PingService(name=config_service_fail.name))
 
+    # Test if the config file is untouched
+    conf_services = [ConfigService(**service) for service in get_json_data(conf_path)]
+    assert conf_services == fake_config_obj
 
-def test_delete(config_service_fail: ConfigService, fake_config_obj: List[ConfigService]):
 
-    services_to_delete = fake_config_obj[0]
+def test_delete(config_service_fail: ConfigService, fake_config_obj: List[ConfigService], conf_path: path.local):
 
-    # Delete service
-    assert services_to_delete == uptimer_service.delete_service(services_to_delete)
+    # Delete service 0
+    assert fake_config_obj[0] == uptimer_service.delete_service(fake_config_obj[0])
 
-    # Delete Service with Service object
-    assert services_to_delete == uptimer_service.delete_service(Service(name=services_to_delete.name))
+    # Check if it is deleted
+    conf_services = [ConfigService(**service) for service in get_json_data(conf_path)]
+    assert any(s == fake_config_obj[0] for s in conf_services) is False
 
-    # Raise because no service found
+    # Delete Service 1 with Service object
+    assert fake_config_obj[1] == uptimer_service.delete_service(Service(name=fake_config_obj[1].name))
+
+    # Check if it is deleted
+    conf_services = [ConfigService(**service) for service in get_json_data(conf_path)]
+    assert any(s == fake_config_obj[1] for s in conf_services) is False
+
+    # Raise because no service already deleted
     with pytest.raises(ServiceNotFound):
-        uptimer_service.delete_service(config_service_fail)
+        uptimer_service.delete_service(fake_config_obj[0])
 
 
-def test_get_service(config_service_fail: ConfigService, fake_config_obj: List[ConfigService]):
+def test_get_service(config_service_fail: ConfigService, fake_config_obj: List[ConfigService], conf_path: path.local):
     # Get all Services
     assert fake_config_obj == uptimer_service.get_services()
 
@@ -136,10 +153,23 @@ def test_get_service(config_service_fail: ConfigService, fake_config_obj: List[C
         uptimer_service.get_service(config_service_fail.name)
 
 
-def test_add_service(fake_config_obj: List[ConfigService]):
+def test_add_service(fake_config_obj: List[ConfigService], conf_path: path.local):
+    # Add service
     new_service = ConfigService(name="foo", url="https://foo.url", ping="False")
-
     assert new_service == uptimer_service.add_service(new_service)
+
+    # Check if it is added
+    conf_services = [ConfigService(**service) for service in get_json_data(conf_path)]
+    assert any(s == new_service for s in conf_services) is True
 
     with pytest.raises(ServiceDuplicate):
         uptimer_service.add_service(fake_config_obj[0])
+
+    # Check if it is just one time in the config
+    conf_services = [ConfigService(**service) for service in get_json_data(conf_path)]
+    counter = 0
+    for conf_service in conf_services:
+        if conf_service == fake_config_obj[0]:
+            counter += 1
+
+    assert counter == 1
