@@ -100,6 +100,6 @@ def delete_service(service: Service) -> ConfigService:
     """
     service = get_service(service.name)
     db_services = get_services()
-    db_services.remove(service)
+    db_services.remove()
     safe_db_services(db_services, services_path)
     return service
