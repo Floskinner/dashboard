@@ -1,10 +1,12 @@
 """Backend Services for the API"""
 import json
+import re
 from pathlib import Path
 from typing import Any, List
 
 from fastapi.encoders import jsonable_encoder
 from models.service import ConfigService
+from models.validation_error import InvalidURL
 
 services_path = Path("data/services.json").absolute()
 services_path.touch(mode=644)
@@ -55,3 +57,9 @@ def set_json_data(data: Any, path: Path) -> None:
     """
     with open(path, mode="w", encoding="utf8") as file:
         json.dump(data, file, indent="\t")
+
+
+def validate_url(url: str) -> None:
+    regex = re.compile("^(https?:\/\/(\w+\.)+\w+(:\d+)?(/\w*)*)$")
+    if not regex.match(url):
+        raise InvalidURL("The URL ist not correct http(s)://some.url:1337/", url)

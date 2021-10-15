@@ -6,10 +6,11 @@ import services
 from httpx import Response
 from models.service import ConfigService, PingService, Service
 from models.service_error import PingError, ServiceDuplicate, ServiceNotFound
+from models.validation_error import InvalidURL
 from py import path
 from pytest_httpx import HTTPXMock
 from pytest_mock import MockerFixture
-from services import get_json_data, uptimer_service
+from services import get_json_data, uptimer_service, validate_url
 
 
 @pytest.fixture()
@@ -223,3 +224,36 @@ def test_update_service(
 
     with pytest.raises(ServiceDuplicate):
         uptimer_service.update_service(fake_config_obj[2], u_service)
+
+
+# fmt:off
+@pytest.mark.parametrize(
+    "url, exception",
+    [
+        ("https://valid.url", False),
+        ("https://still.valid.url", False),
+        ("http://valid.url", False),
+        ("https://valid.url/", False),
+        ("https://valid.url:1337", False),
+        ("http://valid.url:1337", False),
+        ("https://valid.url:1337/valid", False),
+        ("http://still.valid.url:1337/valid", False),
+        ("http://still.valid.url:1337/valid/nice", False),
+        ("htt://invalid.url", True),
+        ("http://invalid", True),
+        ("http://invalid.", True),
+        ("http://invalid:1337", True),
+        ("http://invalid.url::1337", True),
+        ("invalid.url", True)
+    ]
+)
+# fmt:on
+def test_url_validation(url: str, exception: bool):
+    if exception:
+        with pytest.raises(InvalidURL):
+            validate_url(url)
+    else:
+        try:
+            validate_url(url)
+        except InvalidURL:
+            pytest.fail("Should no exception")
