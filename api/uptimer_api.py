@@ -34,9 +34,11 @@ async def add_services(services: List[ConfigService]) -> List[ConfigService]:
     Args:
         services (List[ConfigService]): Services to add
 
+    Raises:
+        BulkServiceError: Contains all failed services and succeeded services
+
     Returns:
         List[ConfigService]: All added services to the configuration
-        fastapi.responses.JSONResponse: If some Exception are made with detailed information
     """
     s_services: List[ConfigService] = []
     f_services: List[ServiceError] = []
@@ -75,9 +77,11 @@ async def delete_services(services: List[Service]) -> ConfigService:
     Args:
         services (List[Service]): All services to delete
 
+    Raises:
+        BulkServiceError: Contains all failed services and succeeded services
+
     Returns:
         ConfigService: Deleted Services
-        fastapi.responses.JSONResponse: If some Exception are made with detailed information
     """
     s_services: List[ConfigService] = []
     f_services: List[ServiceError] = []
@@ -97,7 +101,7 @@ async def delete_services(services: List[Service]) -> ConfigService:
 
 @router.get("/api/service/{name}/config", response_model=ConfigService)
 async def get_service(name: str) -> ConfigService:
-    """Get specific DB Service Configuration
+    """Get specific Config Service Configuration
 
     Returns:
         ConfigService: Service with config
@@ -138,9 +142,11 @@ async def ping_services(services: List[PingService]) -> List[PingService]:
     Args:
         services (List[PingService]): Services to check. URL is optional and response_time not needed
 
+    Raises:
+        BulkServiceError: Contains all failed services and succeeded services
+
     Returns:
         List[PingService]: All Services with response_time
-        fastapi.responses.JSONResponse: If some Exception are made with detailed information
     """
     s_services: List[PingService] = []
     f_services: List[ServiceError] = []
@@ -158,3 +164,18 @@ async def ping_services(services: List[PingService]) -> List[PingService]:
         raise BulkServiceError("Could not reach all services", 404, s_services, f_services)
 
     return s_services
+
+
+@router.put("/api/service/{name}/update", response_model=ConfigService)
+async def update_service(name: str, updated_service: ConfigService) -> ConfigService:
+    """Update the configuration of one service. You also can change the name of the service with this update
+
+    Args:
+        name (str): name of the service to update
+        updated_service (ConfigService): The new configuration
+
+    Returns:
+        ConfigService: the new settings for the service
+    """
+    old_service = Service(name=name)
+    return uptimer_service.update_service(old_service, updated_service)
