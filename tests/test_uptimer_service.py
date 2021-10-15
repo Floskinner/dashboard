@@ -10,7 +10,7 @@ from models.validation_error import InvalidURL
 from py import path
 from pytest_httpx import HTTPXMock
 from pytest_mock import MockerFixture
-from services import get_json_data, uptimer_service, validate_url
+from services import get_json_data, uptimer_service
 
 
 @pytest.fixture()
@@ -39,7 +39,7 @@ def config_service_fail() -> ConfigService:
 def fake_config_json(config_service_ok: ConfigService) -> List[Dict]:
     configs: List[Dict] = []
     for i in range(10):
-        data = {"name": f"{config_service_ok.name}-{i}", "url": config_service_ok.url, "ping": config_service_ok.ping}
+        data = {"name": f"{config_service_ok.name}{i}", "url": config_service_ok.url, "ping": config_service_ok.ping}
         configs.append(data)
     return configs
 
@@ -142,6 +142,7 @@ def test_delete(fake_config_obj: List[ConfigService], conf_path: path.local):
         uptimer_service.delete_service(fake_config_obj[0])
 
 
+# conf_path unused but need to to call for fake config
 def test_get_service(config_service_fail: ConfigService, fake_config_obj: List[ConfigService], conf_path: path.local):
     # Get all Services
     assert fake_config_obj == uptimer_service.get_services()
@@ -249,11 +250,12 @@ def test_update_service(
 )
 # fmt:on
 def test_url_validation(url: str, exception: bool):
+    data = {"name": "foo", "url": url}
     if exception:
         with pytest.raises(InvalidURL):
-            validate_url(url)
+            ConfigService(**data)
     else:
         try:
-            validate_url(url)
+            ConfigService(**data)
         except InvalidURL:
             pytest.fail("Should no exception")
