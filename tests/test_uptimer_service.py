@@ -6,6 +6,7 @@ import services
 from httpx import Response
 from models.service import ConfigService, PingService, Service
 from models.service_error import PingError, ServiceDuplicate, ServiceNotFound
+from models.validation_error import InvalidURL
 from py import path
 from pytest_httpx import HTTPXMock
 from pytest_mock import MockerFixture
@@ -38,7 +39,7 @@ def config_service_fail() -> ConfigService:
 def fake_config_json(config_service_ok: ConfigService) -> List[Dict]:
     configs: List[Dict] = []
     for i in range(10):
-        data = {"name": f"{config_service_ok.name}-{i}", "url": config_service_ok.url, "ping": config_service_ok.ping}
+        data = {"name": f"{config_service_ok.name}{i}", "url": config_service_ok.url, "ping": config_service_ok.ping}
         configs.append(data)
     return configs
 
@@ -141,6 +142,7 @@ def test_delete(fake_config_obj: List[ConfigService], conf_path: path.local):
         uptimer_service.delete_service(fake_config_obj[0])
 
 
+# conf_path unused but need to to call for fake config
 def test_get_service(config_service_fail: ConfigService, fake_config_obj: List[ConfigService], conf_path: path.local):
     # Get all Services
     assert fake_config_obj == uptimer_service.get_services()
@@ -223,3 +225,37 @@ def test_update_service(
 
     with pytest.raises(ServiceDuplicate):
         uptimer_service.update_service(fake_config_obj[2], u_service)
+
+
+# fmt:off
+@pytest.mark.parametrize(
+    "url, exception",
+    [
+        ("https://valid.url", False),
+        ("https://still.valid.url", False),
+        ("http://valid.url", False),
+        ("https://valid.url/", False),
+        ("https://valid.url:1337", False),
+        ("http://valid.url:1337", False),
+        ("https://valid.url:1337/valid", False),
+        ("http://still.valid.url:1337/valid", False),
+        ("http://still.valid.url:1337/valid/nice", False),
+        ("htt://invalid.url", True),
+        ("http://invalid", True),
+        ("http://invalid.", True),
+        ("http://invalid:1337", True),
+        ("http://invalid.url::1337", True),
+        ("invalid.url", True)
+    ]
+)
+# fmt:on
+def test_url_validation(url: str, exception: bool):
+    data = {"name": "foo", "url": url}
+    if exception:
+        with pytest.raises(InvalidURL):
+            ConfigService(**data)
+    else:
+        try:
+            ConfigService(**data)
+        except InvalidURL:
+            pytest.fail("Should no exception")
