@@ -16,7 +16,7 @@ class Service(BaseModel):
 
 
 class ConfigService(Service):
-    """This Object can be written to the DB
+    """This Object can be written to the config
 
     Args:
         url (str): URL String

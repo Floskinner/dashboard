@@ -36,11 +36,11 @@ def config_service_fail() -> ConfigService:
 
 @pytest.fixture
 def fake_config_json(config_service_ok: ConfigService) -> List[Dict]:
-    db: List[Dict] = []
+    configs: List[Dict] = []
     for i in range(10):
         data = {"name": f"{config_service_ok.name}-{i}", "url": config_service_ok.url, "ping": config_service_ok.ping}
-        db.append(data)
-    return db
+        configs.append(data)
+    return configs
 
 
 @pytest.fixture
@@ -120,7 +120,7 @@ async def test_ping_services(
     assert conf_services == fake_config_obj
 
 
-def test_delete(config_service_fail: ConfigService, fake_config_obj: List[ConfigService], conf_path: path.local):
+def test_delete(fake_config_obj: List[ConfigService], conf_path: path.local):
 
     # Delete service 0
     assert fake_config_obj[0] == uptimer_service.delete_service(fake_config_obj[0])
@@ -136,7 +136,7 @@ def test_delete(config_service_fail: ConfigService, fake_config_obj: List[Config
     conf_services = [ConfigService(**service) for service in get_json_data(conf_path)]
     assert any(s == fake_config_obj[1] for s in conf_services) is False
 
-    # Raise because no service already deleted
+    # Raise because service got already deleted
     with pytest.raises(ServiceNotFound):
         uptimer_service.delete_service(fake_config_obj[0])
 
@@ -173,3 +173,53 @@ def test_add_service(fake_config_obj: List[ConfigService], conf_path: path.local
             counter += 1
 
     assert counter == 1
+
+    # Check if it can handle a empty config
+    file = conf_path.open(mode="w")
+    file.close()
+
+    new_service = ConfigService(name="foo", url="https://foo.url", ping="False")
+    assert new_service == uptimer_service.add_service(new_service)
+
+
+def test_update_service(
+    config_service_fail: ConfigService, fake_config_obj: List[ConfigService], conf_path: path.local
+):
+    # Update only url and ping
+    u_service = fake_config_obj[0].copy()
+    u_service.url = "https://updated.url"
+    u_service.ping = True
+
+    assert u_service == uptimer_service.update_service(fake_config_obj[0], u_service)
+
+    # Check if data is changed
+    conf_services = [ConfigService(**service) for service in get_json_data(conf_path)]
+    assert any(s == u_service for s in conf_services) is True
+
+    # Update also name of the service
+    u_service = fake_config_obj[1].copy()
+    u_service.name = "updated_name"
+    u_service.url = "https://updated1.url"
+    u_service.ping = True
+
+    assert u_service == uptimer_service.update_service(fake_config_obj[1], u_service)
+
+    # Check if data is changed
+    conf_services = [ConfigService(**service) for service in get_json_data(conf_path)]
+    assert any(s == u_service for s in conf_services) is True
+
+    # Update shoud fail because service does not exist to update
+    u_service = config_service_fail.copy()
+    u_service.url = "https://updated2.url"
+
+    with pytest.raises(ServiceNotFound):
+        assert uptimer_service.update_service(config_service_fail, u_service)
+
+    # Fail because rename to a existing service
+    u_service = fake_config_obj[2].copy()
+    u_service.name = fake_config_obj[3].name
+    u_service.url = "https://updated1.url"
+    u_service.ping = True
+
+    with pytest.raises(ServiceDuplicate):
+        uptimer_service.update_service(fake_config_obj[2], u_service)
