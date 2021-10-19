@@ -1,8 +1,11 @@
 """Contains the BaseModel for the Service"""
 
+import re
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
+
+from models.validation_error import InvalidURL
 
 
 class Service(BaseModel):
@@ -25,6 +28,13 @@ class ConfigService(Service):
 
     url: str
     ping: Optional[bool] = True
+
+    @validator("url")
+    def validate_service_url(cls, url) -> None:
+        regex = re.compile("^(https?:\/\/(\w+\.)+\w+(:\d+)?(/\w*)*)$")
+        if not regex.match(url):
+            raise InvalidURL("The URL ist not correct http(s)://some.url:1337/", url)
+        return url
 
 
 class PingService(Service):

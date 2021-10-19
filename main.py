@@ -5,6 +5,7 @@ from fastapi.encoders import jsonable_encoder
 
 from api import uptimer_api
 from models.service_error import BulkServiceError, ServiceError
+from models.validation_error import InvalidURL
 
 api = fastapi.FastAPI()
 
@@ -45,6 +46,20 @@ async def service_exception_handler(request, exc: ServiceError):
         fastapi.responses.JSONResponse: Return Exception as JSON-Formattet to the client
     """
     return fastapi.responses.JSONResponse(content=jsonable_encoder(exc), status_code=exc.status_code)
+
+
+@api.exception_handler(InvalidURL)
+async def validation_exception_handler(request, exc: InvalidURL):
+    """Exception Handler for the fastAPI if InvalidURL is raised
+
+    Args:
+        request: Request for the api
+        exc (InvalidURL): Raised Exception
+
+    Returns:
+        fastapi.responses.JSONResponse: Return Exception as JSON-Formattet to the client
+    """
+    return fastapi.responses.JSONResponse(content=jsonable_encoder(exc), status_code=422)
 
 
 @api.exception_handler(Exception)
