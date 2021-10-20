@@ -3,7 +3,7 @@ import fastapi
 import uvicorn
 from fastapi.encoders import jsonable_encoder
 
-from api import uptimer_api
+from api import uptimer_api, docker_api
 from models.service_error import BulkServiceError, ServiceError
 from models.validation_error import InvalidURL
 
@@ -18,6 +18,7 @@ def configure():
 def configure_routing():
     """Add all Router for FastAPI"""
     api.include_router(uptimer_api.router)
+    api.include_router(docker_api.router)
 
 
 @api.exception_handler(BulkServiceError)

@@ -16,6 +16,7 @@ class Service(BaseModel):
     """
 
     name: str
+    container_name: str = None
 
 
 class ConfigService(Service):
@@ -31,7 +32,7 @@ class ConfigService(Service):
 
     @validator("url")
     def validate_service_url(cls, url) -> None:
-        regex = re.compile("^(https?:\/\/(\w+\.)+\w+(:\d+)?(/\w*)*)$")
+        regex = re.compile(r"^(https?:\/\/(\w+\.)+\w+(:\d+)?(/\w*)*)$")
         if not regex.match(url):
             raise InvalidURL("The URL ist not correct http(s)://some.url:1337/", url)
         return url

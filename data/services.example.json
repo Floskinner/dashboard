@@ -1,6 +1,7 @@
 [
 	{
 		"name": "Heimdall",
+		"container_name": "heimdall",
 		"url": "https://floskinner.de",
 		"ping": true
 	}
