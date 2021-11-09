@@ -6,6 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from api import uptimer_api, docker_api
 from models.service_error import BulkServiceError, ServiceError
 from models.validation_error import InvalidURL
+from models.docker_container_error import ContainerNotFound
 
 api = fastapi.FastAPI()
 
@@ -61,6 +62,20 @@ async def validation_exception_handler(request, exc: InvalidURL):
         fastapi.responses.JSONResponse: Return Exception as JSON-Formattet to the client
     """
     return fastapi.responses.JSONResponse(content=jsonable_encoder(exc), status_code=422)
+
+
+@api.exception_handler(ContainerNotFound)
+async def container_not_found_exception_handler(request, exc: ContainerNotFound):
+    """Exception Handler for the fastAPI if the container with the specific name is not Found
+
+    Args:
+        request: Request for the api
+        exc (ContainerNotFound): Raised Exception
+
+    Returns:
+        fastapi.responses.JSONResponse: Return Exception as JSON-Formattet to the client
+    """
+    return fastapi.responses.JSONResponse(content=jsonable_encoder(exc), status_code=404)
 
 
 @api.exception_handler(Exception)
