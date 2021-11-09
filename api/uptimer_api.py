@@ -11,7 +11,7 @@ router = fastapi.APIRouter()
 
 
 @router.post("/api/service/{name}/add", response_model=ConfigService)
-async def add_service(name: str, url: str, ping: bool = False) -> ConfigService:
+async def add_service(name: str, url: str, container_name: str = None, ping: bool = False) -> ConfigService:
     """Add one service to the configuration. The name hase to be unique in the configuration
 
     Args:
@@ -23,7 +23,7 @@ async def add_service(name: str, url: str, ping: bool = False) -> ConfigService:
         ConfigService: Created Service
         fastapi.responses.JSONResponse: If some Exception are made with detailed information
     """
-    service = ConfigService(name=name, url=url, ping=ping)
+    service = ConfigService(name=name, url=url, container_name=container_name, ping=ping)
     return uptimer_service.add_service(service)
 
 
